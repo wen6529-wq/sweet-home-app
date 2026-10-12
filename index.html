@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>甜蜜的家 公基金記帳 App</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 font-sans pb-20">
+
+  <!-- 頂部標題與總餘額 -->
+  <div class="bg-blue-600 text-white p-5 rounded-b-2xl shadow-md sticky top-0 z-10">
+    <div class="flex justify-between items-center mb-1">
+      <h1 class="text-lg font-bold opacity-90">🏠 甜蜜的家 公基金管理</h1>
+      <button onclick="resetData()" class="text-xs bg-blue-700 hover:bg-blue-800 text-blue-200 px-2 py-1 rounded border border-blue-400">重設資料</button>
+    </div>
+    <div class="mt-2 flex justify-between items-end">
+      <div>
+        <p class="text-xs text-blue-200">當前公基金餘額</p>
+        <p id="totalBalance" class="text-3xl font-extrabold text-yellow-300">$ 0</p>
+      </div>
+      <div class="text-right text-xs text-blue-100">
+        <p>總收入: <span id="totalIncome">$ 0</span></p>
+        <p>總支出: <span id="totalExpense">$ 0</span></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 分頁切換 Tab -->
+  <div class="flex justify-around bg-white border-b border-gray-200 text-sm font-medium text-gray-600">
+    <button onclick="switchTab('expenseTab')" id="tab1" class="py-3 px-2 text-blue-600 border-b-2 border-blue-600 font-bold flex-1 text-center">支出明細</button>
+    <button onclick="switchTab('incomeTab')" id="tab2" class="py-3 px-2 flex-1 text-center">繳費紀錄表</button>
+    <button onclick="switchTab('statusTab')" id="tab3" class="py-3 px-2 flex-1 text-center">成員繳費進度</button>
+  </div>
+
+  <!-- 頁面一：支出明細 -->
+  <div id="expenseTab" class="p-4 space-y-3">
+    <button onclick="openModal('expense')" class="w-full bg-red-500 hover:bg-red-600 text-white py-2.5 rounded-xl font-bold shadow-sm transition">
+      + 新增支出紀錄
+    </button>
+
+    <div class="bg-white rounded-xl shadow overflow-hidden">
+      <table class="w-full text-left text-xs border-collapse">
+        <thead class="bg-gray-50 text-gray-500 border-b">
+          <tr>
+            <th class="p-2.5">日期</th>
+            <th class="p-2.5">摘要</th>
+            <th class="p-2.5 text-right">金額</th>
+            <th class="p-2.5 text-right bg-yellow-50">餘額</th>
+          </tr>
+        </thead>
+        <tbody id="expenseList" class="divide-y divide-gray-100">
+          <!-- 動態載入支出 -->
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 頁面二：成員繳費紀錄表 -->
+  <div id="incomeTab" class="p-4 space-y-3 hidden">
+    <button onclick="openModal('income')" class="w-full bg-green-600 hover:bg-green-700 text-white py-2.5 rounded-xl font-bold shadow-sm transition">
+      + 新增成員繳費
+    </button>
+
+    <div class="bg-white rounded-xl shadow p-3 overflow-x-auto">
+      <h3 class="text-xs font-bold text-gray-500 mb-2">當前年度繳費 (單位: 元)</h3>
+      <table id="matrixTable" class="w-full text-center text-xs border border-gray-200 min-w-[500px]">
+        <!-- 動態渲染繳費表格 -->
+      </table>
+    </div>
+  </div>
+
+  <!-- 頁面三：成員繳費進度 -->
+  <div id="statusTab" class="p-4 space-y-3 hidden">
+    <div class="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-800">
+      <p class="font-bold mb-1">💡 會費標準說明：</p>
+      <p>• 阿爸：每月 <span class="font-bold text-blue-900">$1,000</span> 元</p>
+      <p>• 其他成員：每月 <span class="font-bold text-blue-900">$2,000</span> 元</p>
+    </div>
+
+    <div id="memberStatusCards" class="space-y-3">
+      <!-- 動態載入成員繳費進度卡片 -->
+    </div>
+  </div>
+
+  <!-- 新增資料 Modal 彈窗 -->
+  <div id="modal" class="fixed inset-0 bg-black/50 flex items-center justify-center p-4 hidden z-20">
+    <div class="bg-white w-full max-w-sm rounded-2xl p-5 space-y-4 shadow-xl">
+      <h2 id="modalTitle" class="text-base font-bold text-gray-800">新增紀錄</h2>
+      
+      <form id="recordForm" onsubmit="handleFormSubmit(event)" class="space-y-3 text-sm">
+        <input type="hidden" id="recordType">
+        <div>
+          <label class="block text-xs text-gray-500 mb-1">日期</label>
+          <input type="date" id="inputDate" required class="w-full border rounded-lg p-2 text-sm focus:outline-blue-500">
+        </div>
+        
+        <div id="fieldMember" class="hidden">
+          <label class="block text-xs text-gray-500 mb-1">繳費成員</label>
+          <select id="inputMember" class="w-full border rounded-lg p-2 text-sm focus:outline-blue-500">
+            <option value="阿爸">阿爸</option>
+            <option value="哥">哥</option>
+            <option value="阿雯">阿雯</option>
+            <option value="阿婷">阿婷</option>
+            <option value="草莓">草莓</option>
+          </select>
+        </div>
+
+        <div id="fieldDesc">
+          <label class="block text-xs text-gray-500 mb-1">摘要 / 說明</label>
+          <input type="text" id="inputDesc" placeholder="例如：買菜、聚餐費用" class="w-full border rounded-lg p-2 text-sm focus:outline-blue-500">
+        </div>
+
+        <div>
+          <label class="block text-xs text-gray-500 mb-1">金額</label>
+          <input type="number" id="inputAmount" required min="1" placeholder="0" class="w-full border rounded-lg p-2 text-sm focus:outline-blue-500">
+        </div>
+
+        <div class="flex gap-2 pt-2">
+          <button type="button" onclick="closeModal()" class="w-1/2 py-2 border rounded-lg text-gray-600 font-medium">取消</button>
+          <button type="submit" class="w-1/2 py-2 bg-blue-600 text-white rounded-lg font-medium">儲存</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    // 基本設定
+    let initialBalance = 0; 
+    let startYear = 2026;     // 記帳起始年份
+    let startMonth = 1;       // 記帳起始月份
+
+    // 成員名單與個人專屬月費設定
+    let memberFees = {
+      '阿爸': 1000,
+      '哥': 2000,
+      '阿雯': 2000,
+      '阿婷': 2000,
+      '草莓': 2000
+    };
+
+    let members = Object.keys(memberFees);
+    let expenses = JSON.parse(localStorage.getItem('sweet_home_expenses')) || [];
+    let payments = JSON.parse(localStorage.getItem('sweet_home_payments')) || [];
+
+    function saveToStorage() {
+      localStorage.setItem('sweet_home_expenses', JSON.stringify(expenses));
+      localStorage.setItem('sweet_home_payments', JSON.stringify(payments));
+    }
+
+    function init() {
+      renderExpenseList();
+      renderMatrixTable();
+      renderMemberStatus();
+      updateHeader();
+      document.getElementById('inputDate').valueAsDate = new Date();
+    }
+
+    function updateHeader() {
+      let totalIncome = payments.reduce((sum, p) => sum + p.amount, 0) + initialBalance;
+      let totalExpense = expenses.reduce((sum, e) => sum + e.amount, 0);
+      let balance = totalIncome - totalExpense;
+
+      document.getElementById('totalBalance').innerText = `$ ${balance.toLocaleString()}`;
+      document.getElementById('totalIncome').innerText = `$ ${totalIncome.toLocaleString()}`;
+      document.getElementById('totalExpense').innerText = `$ ${totalExpense.toLocaleString()}`;
+    }
+
+    function renderExpenseList() {
+      const tbody = document.getElementById('expenseList');
+      tbody.innerHTML = '';
+
+      if(expenses.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" class="p-4 text-center text-gray-400">尚無支出紀錄</td></tr>';
+        return;
+      }
+
+      expenses.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+      let totalIncome = payments.reduce((sum, p) => sum + p.amount, 0) + initialBalance;
+      let currentBal = totalIncome;
+
+      expenses.forEach(item => {
+        currentBal -= item.amount;
+        let tr = document.createElement('tr');
+        tr.className = "hover:bg-gray-50";
+        tr.innerHTML = `
+          <td class="p-2.5 text-gray-500 whitespace-nowrap">${item.date}</td>
+          <td class="p-2.5 font-medium text-gray-800">${item.desc}</td>
+          <td class="p-2.5 text-right font-bold text-red-500">$${item.amount.toLocaleString()}</td>
+          <td class="p-2.5 text-right font-bold text-gray-700 bg-yellow-50">$${currentBal.toLocaleString()}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function renderMatrixTable() {
+      const table = document.getElementById('matrixTable');
+      let html = '<tr class="bg-gray-100 font-bold border-b"><th class="p-1 border">成員</th>';
+      for(let i=1; i<=12; i++) html += `<th class="p-1 border">${i}月</th>`;
+      html += '<th class="p-1 border bg-orange-100">合計</th></tr>';
+
+      members.forEach(m => {
+        html += `<tr class="border-b"><td class="p-1 border font-bold bg-gray-50">${m}</td>`;
+        let mTotal = 0;
+        for(let month=1; month<=12; month++) {
+          let totalMonthAmt = payments
+            .filter(p => p.member === m && p.month === month)
+            .reduce((sum, p) => sum + p.amount, 0);
+          
+          mTotal += totalMonthAmt;
+          html += `<td class="p-1 border text-gray-600">${totalMonthAmt ? totalMonthAmt.toLocaleString() : '-'}</td>`;
+        }
+        html += `<td class="p-1 border font-bold bg-orange-50 text-orange-700">$${mTotal.toLocaleString()}</td></tr>`;
+      });
+
+      table.innerHTML = html;
+    }
+
+    // 計算成員個別繳費進度
+    function renderMemberStatus() {
+      const container = document.getElementById('memberStatusCards');
+      container.innerHTML = '';
+
+      members.forEach(m => {
+        let monthlyFee = memberFees[m]; // 取得該成員專屬的會費金額
+        
+        let totalPaid = payments
+          .filter(p => p.member === m)
+          .reduce((sum, p) => sum + p.amount, 0);
+
+        let paidMonths = Math.floor(totalPaid / monthlyFee);
+        let remainder = totalPaid % monthlyFee;
+
+        let paidUntilText = "";
+        if (paidMonths === 0) {
+          paidUntilText = "尚未繳費";
+        } else {
+          let totalM = (startMonth - 1) + paidMonths;
+          let targetYear = startYear + Math.floor((totalM - 1) / 12);
+          let targetMonth = ((totalM - 1) % 12) + 1;
+          paidUntilText = `${targetYear} 年 ${targetMonth} 月`;
+        }
+
+        let card = document.createElement('div');
+        card.className = "bg-white p-4 rounded-xl shadow border border-gray-100 flex justify-between items-center";
+        card.innerHTML = `
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="font-bold text-gray-800 text-base">${m}</span>
+              <span class="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium">已繳 ${paidMonths} 個月</span>
+            </div>
+            <p class="text-xs text-gray-400 mt-1">月費標準：$${monthlyFee.toLocaleString()}/月</p>
+            <p class="text-xs text-gray-500">累計總繳：<span class="font-bold text-gray-700">$${totalPaid.toLocaleString()}</span> ${remainder > 0 ? `<span class="text-amber-600">(餘款 $${remainder})</span>` : ''}</p>
+          </div>
+          <div class="text-right">
+            <p class="text-xs text-gray-400">已繳費至</p>
+            <p class="text-base font-extrabold text-green-600">${paidUntilText}</p>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    function switchTab(tabName) {
+      document.getElementById('expenseTab').classList.add('hidden');
+      document.getElementById('incomeTab').classList.add('hidden');
+      document.getElementById('statusTab').classList.add('hidden');
+      document.getElementById(tabName).classList.remove('hidden');
+
+      ['tab1', 'tab2', 'tab3'].forEach(id => {
+        document.getElementById(id).className = "py-3 px-2 flex-1 text-center text-gray-600";
+      });
+
+      if(tabName === 'expenseTab') document.getElementById('tab1').className = "py-3 px-2 text-blue-600 border-b-2 border-blue-600 font-bold flex-1 text-center";
+      if(tabName === 'incomeTab') document.getElementById('tab2').className = "py-3 px-2 text-blue-600 border-b-2 border-blue-600 font-bold flex-1 text-center";
+      if(tabName === 'statusTab') document.getElementById('tab3').className = "py-3 px-2 text-blue-600 border-b-2 border-blue-600 font-bold flex-1 text-center";
+    }
+
+    function openModal(type) {
+      document.getElementById('recordType').value = type;
+      document.getElementById('modal').classList.remove('hidden');
+      if(type === 'income') {
+        document.getElementById('modalTitle').innerText = '新增成員繳費';
+        document.getElementById('fieldMember').classList.remove('hidden');
+        document.getElementById('fieldDesc').classList.add('hidden');
+      } else {
+        document.getElementById('modalTitle').innerText = '新增支出紀錄';
+        document.getElementById('fieldMember').classList.add('hidden');
+        document.getElementById('fieldDesc').classList.remove('hidden');
+      }
+    }
+
+    function closeModal() {
+      document.getElementById('modal').classList.add('hidden');
+    }
+
+    function handleFormSubmit(e) {
+      e.preventDefault();
+      let type = document.getElementById('recordType').value;
+      let date = document.getElementById('inputDate').value;
+      let amount = parseFloat(document.getElementById('inputAmount').value) || 0;
+
+      if(type === 'income') {
+        let member = document.getElementById('inputMember').value;
+        let month = new Date(date).getMonth() + 1;
+        payments.push({ member, month, amount });
+        renderMatrixTable();
+        renderMemberStatus();
+      } else {
+        let desc = document.getElementById('inputDesc').value || '未命名項目';
+        expenses.push({ date, desc, amount });
+        renderExpenseList();
+      }
+
+      saveToStorage();
+      updateHeader();
+      closeModal();
+      document.getElementById('recordForm').reset();
+      document.getElementById('inputDate').valueAsDate = new Date();
+    }
+
+    function resetData() {
+      if(confirm('確定要清空所有新增的記帳資料嗎？')) {
+        localStorage.removeItem('sweet_home_expenses');
+        localStorage.removeItem('sweet_home_payments');
+        expenses = [];
+        payments = [];
+        init();
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>
